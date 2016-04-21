@@ -94,7 +94,7 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
     } else if (protocol_containsSelector(@protocol(UITableViewDelegate), aSelector)) {
         return [super respondsToSelector:aSelector] || [_myDelegate respondsToSelector:aSelector];
     }
-
+    
     return [super respondsToSelector:aSelector];
 }
 
@@ -105,7 +105,7 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
     } else if (protocol_containsSelector(@protocol(UITableViewDelegate), aSelector)) {
         return _myDelegate;
     }
-
+    
     return [super forwardingTargetForSelector:aSelector];
 }
 
@@ -137,10 +137,10 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
 - (void)awakeFromNib
 {
     [super awakeFromNib];
-
+    
     _storedTableHeaderView = self.tableHeaderView;
     _storedTableFooterView = self.tableFooterView;
-
+    
     self.tableHeaderView = self.tableHeaderView;
     self.tableFooterView = self.tableFooterView;
 }
@@ -170,7 +170,7 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
     if (resetFlag) {
         [self _resetExpansionStates];
     }
-
+    
     if (self.onlyDisplayHeaderAndFooterViewIfTableViewIsNotEmpty) {
         if ([self numberOfSections] > 0) {
             if ([super tableFooterView] != self.storedTableFooterView) {
@@ -188,7 +188,7 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
             [super setTableHeaderView:self.storedTableHeaderView];
         }
     }
-
+    
     [super reloadData];
 }
 
@@ -204,60 +204,65 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
         // section is already showing, return
         return;
     }
-
+    
     [self deselectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:section] animated:NO];
-
+    
     if ([self.myDataSource tableView:self needsToDownloadDataForExpandableSection:section]) {
         // data is still not ready to be displayed, return
         [self downloadDataInSection:section];
         return;
     }
-
+    
     if ([self.myDelegate respondsToSelector:@selector(tableView:willExpandSection:animated:)]) {
         [self.myDelegate tableView:self willExpandSection:section animated:animated];
     }
-
+    
     self.animatingSectionsDictionary[key] = @YES;
-
+    
     // remove the download state
     self.downloadingSectionsDictionary[key] = @NO;
-
+    
     // update the showing state
     self.showingSectionsDictionary[key] = @YES;
-
+    
     NSInteger newRowCount = [self.myDataSource tableView:self numberOfRowsInSection:section];
     // now do the animation magic to insert the new cells
     if (animated && newRowCount <= self.maximumRowCountToStillUseAnimationWhileExpanding) {
         [self beginUpdates];
-
+        
         UITableViewCell<UIExpandingTableViewCell> *cell = (UITableViewCell<UIExpandingTableViewCell> *)[self cellForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:section]];
-        cell.loading = NO;
+        
+        //cell.loading = NO;
         [cell setExpansionStyle:UIExpansionStyleExpanded animated:YES];
-
+        if ([cell respondsToSelector:@selector(setLoading:)]) {
+            cell.loading = NO;
+        }
+        // MARK: MY CHANGES ON TOP
+        
         NSMutableArray *insertArray = [NSMutableArray array];
         for (int i = 1; i < newRowCount; i++) {
             [insertArray addObject:[NSIndexPath indexPathForRow:i inSection:section] ];
         }
-
+        
         [self insertRowsAtIndexPaths:insertArray withRowAnimation:self.reloadAnimation];
-
+        
         [self endUpdates];
     } else {
         [self reloadDataAndResetExpansionStates:NO];
     }
-
+    
     [self.animatingSectionsDictionary removeObjectForKey:@(section)];
-
+    
     void(^completionBlock)(void) = ^{
         if ([self respondsToSelector:@selector(scrollViewDidScroll:)]) {
             [self scrollViewDidScroll:self];
         }
-
+        
         if ([self.myDelegate respondsToSelector:@selector(tableView:didExpandSection:animated:)]) {
             [self.myDelegate tableView:self didExpandSection:section animated:animated];
         }
     };
-
+    
     if (animated) {
         [CATransaction setCompletionBlock:completionBlock];
     } else {
@@ -271,55 +276,59 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
         // section is not showing, return
         return;
     }
-
+    
     if ([self.myDelegate respondsToSelector:@selector(tableView:willCollapseSection:animated:)]) {
         [self.myDelegate tableView:self willCollapseSection:section animated:animated];
     }
-
+    
     [self deselectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:section] animated:NO];
-
+    
     self.animatingSectionsDictionary[key] = @YES;
-
+    
     // update the showing state
     self.showingSectionsDictionary[key] = @NO;
-
+    
     NSInteger newRowCount = [self.myDataSource tableView:self numberOfRowsInSection:section];
     // now do the animation magic to delete the new cells
     if (animated && newRowCount <= self.maximumRowCountToStillUseAnimationWhileExpanding) {
         [self beginUpdates];
-
+        
         UITableViewCell<UIExpandingTableViewCell> *cell = (UITableViewCell<UIExpandingTableViewCell> *)[self cellForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:section]];
-        cell.loading = NO;
+        //cell.loading = NO;
         [cell setExpansionStyle:UIExpansionStyleCollapsed animated:YES];
-
+        if ([cell respondsToSelector:@selector(setLoading:)]) {
+            cell.loading = NO;
+        }
+        // MARK: MY CHANGES ON TOP
+        
         NSMutableArray *deleteArray = [NSMutableArray array];
         for (int i = 1; i < newRowCount; i++) {
             [deleteArray addObject:[NSIndexPath indexPathForRow:i inSection:section] ];
         }
-
+        
         [self deleteRowsAtIndexPaths:deleteArray withRowAnimation:self.reloadAnimation];
-
+        
         [self endUpdates];
     } else {
         [self reloadDataAndResetExpansionStates:NO];
     }
-
+    
     [self.animatingSectionsDictionary removeObjectForKey:@(section)];
-
-    /*[self scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:section]
+    
+    [self scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:section]
                 atScrollPosition:UITableViewScrollPositionTop
-                        animated:animated];*/
-
+                        animated:animated];
+    
     void(^completionBlock)(void) = ^{
         if ([self respondsToSelector:@selector(scrollViewDidScroll:)]) {
             [self scrollViewDidScroll:self];
         }
-
+        
         if ([self.myDelegate respondsToSelector:@selector(tableView:didCollapseSection:animated:)]) {
             [self.myDelegate tableView:self didCollapseSection:section animated:animated];
         }
     };
-
+    
     if (animated) {
         [CATransaction setCompletionBlock:completionBlock];
     } else {
@@ -349,7 +358,7 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
         if (nextIndex == NSNotFound) {
             nextIndex = indexCount;
         }
-
+        
         for (NSInteger i = currentIndex + 1; i < nextIndex; i++) {
             NSUInteger newIndex = i - currentShift;
             self.expandableSectionsDictionary[@(newIndex)] = @([self.expandableSectionsDictionary[@(i)] boolValue]);
@@ -357,11 +366,11 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
             self.downloadingSectionsDictionary[@(newIndex)] = @([self.downloadingSectionsDictionary[@(i)] boolValue]);
             self.animatingSectionsDictionary[@(newIndex)] = @([self.animatingSectionsDictionary[@(i)] boolValue]);
         }
-
+        
         currentShift++;
         currentIndex = [sections indexLessThanIndex:currentIndex];
     }
-
+    
     [super deleteSections:sections withRowAnimation:animation];
 }
 
@@ -419,7 +428,7 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
             return 0;
         }
         self.expandableSectionsDictionary[key] = @YES;
-
+        
         if ([self.showingSectionsDictionary[key] boolValue]) {
             return [self.myDataSource tableView:tableView numberOfRowsInSection:section];
         } else {
@@ -442,14 +451,21 @@ static BOOL protocol_containsSelector(Protocol *protocol, SEL selector)
         if (indexPath.row == 0) {
             UITableViewCell<UIExpandingTableViewCell> *cell = [self.myDataSource tableView:self expandingCellForSection:indexPath.section];
             if ([self.downloadingSectionsDictionary[key] boolValue]) {
-                [cell setLoading:YES];
+                //[cell setLoading:YES];
+                if ([cell respondsToSelector:@selector(setLoading:)]) {
+                    [cell setLoading:YES];
+                }
+                
             } else {
-                [cell setLoading:NO];
+                if ([cell respondsToSelector:@selector(setLoading:)]) {
+                    [cell setLoading:NO];
+                }
                 if ([self.showingSectionsDictionary[key] boolValue]) {
                     [cell setExpansionStyle:UIExpansionStyleExpanded animated:NO];
                 } else {
                     [cell setExpansionStyle:UIExpansionStyleCollapsed animated:NO];
                 }
+                
             }
             return cell;
         } else {
